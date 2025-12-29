@@ -33,7 +33,7 @@ with DAG(
         execution_timeout=timedelta(minutes=20),
         application="/opt/airflow/src/extract.py",
         conn_id='spark_default',
-        # verbose=True,
+        verbose=True,
     )
 
     cleaning = SparkSubmitOperator(
@@ -41,7 +41,7 @@ with DAG(
         execution_timeout=timedelta(minutes=20),
         application="/opt/airflow/src/cleaning.py",
         conn_id='spark_default',
-        # verbose=True,
+        verbose=True,
     )
 
     transform = SparkSubmitOperator(
@@ -49,7 +49,7 @@ with DAG(
         execution_timeout=timedelta(minutes=20),
         application="/opt/airflow/src/transform.py",
         conn_id='spark_default',
-        # verbose=True,
+        verbose=True,
     )
 
     load = SparkSubmitOperator(
