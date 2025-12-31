@@ -13,8 +13,8 @@ import pandas as pd
 
 #Make dirnames
 datasets = [
-    d for d in os.listdir("/opt/airflow/data/output")
-    if os.path.isdir(os.path.join("/opt/airflow/data/output/", d))
+    d for d in os.listdir("data/output")
+    if os.path.isdir(os.path.join("data/output/", d))
 ]
 #Get database connection info from environment variables
 USER = os.getenv("user")
@@ -38,17 +38,20 @@ def load_to_dwh():
     dfs = {}
 
     for dataset in datasets:
-        df = spark.read.parquet(f"/opt/airflow/data/output/{dataset}")
+        df = spark.read.parquet(f"data/output/{dataset}")
         dfs[dataset] = df.toPandas()
         print("____________________________________________________")
         print(f"Loaded {dataset} with {len(dfs[dataset])} records for loading.")
         print(f"Schema for {dataset}:")
         print(df.schema)
+
+    spark.stop()    
+
+    for dataset in datasets:    
         #Load each dataframe to Supabase
         dfs[dataset].to_sql(dataset, engine, if_exists='replace', index=False)
         print(f"Loaded {dataset} to Supabase Postgres.")
 
-    spark.stop()
     print("____________________________________________________")
     print("Data loading to DWH completed successfully.")
 

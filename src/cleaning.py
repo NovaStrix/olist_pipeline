@@ -13,6 +13,7 @@ import os
 #Make dirnames
 dirnames = [filename.replace("_dataset.csv", "").replace(".csv", "") for filename in filenames]
 
+
 #Make cleaning function
 def clean_customers():
     return dfs['olist_customers'].select(
@@ -99,20 +100,24 @@ def clean_sellers():
         col("seller_state")
     )
 
+def last_order_date():
+    dirnames.append('last_order_date')
+    return dfs['olist_orders'].groupBy("customer_id").agg({"order_purchase_timestamp": "max"}).withColumnRenamed("max(order_purchase_timestamp)", "last_order_date")
+
 dfs = {}
 
 def clean_data():
     #Clean data/processed if exists
-    if os.path.exists("/opt/airflow/data/processed"):
-        shutil.rmtree("/opt/airflow/data/processed")
-        os.makedirs("/opt/airflow/data/processed", exist_ok=True)
+    if os.path.exists("data/processed"):
+        shutil.rmtree("data/processed")
+        os.makedirs("data/processed", exist_ok=True)
     
     #Create Spark session
     spark = SparkSession.builder.appName("Data_Cleaning").getOrCreate()
     
     #Read raw data from data/raw
     for dirname in dirnames:
-        df = spark.read.csv(f"/opt/airflow/data/{dirname}", header=True)
+        df = spark.read.csv(f"data/raw/{dirname}", header=True)
         dfs[dirname] = df
         print("____________________________________________________")
         print(f"Loaded {dirname} with {df.count()} records for cleaning.")
@@ -134,6 +139,7 @@ def clean_data():
     dfs['olist_orders'] = clean_orders()
     dfs['olist_products'] = clean_products()
     dfs['olist_sellers'] = clean_sellers()
+    dfs['last_order_date'] = last_order_date()
 
     for dirname in dirnames:
         print("____________________________________________________")
@@ -143,7 +149,7 @@ def clean_data():
 
     #Save cleaned data back to data/processed
     for dirname in dirnames:
-        dfs[dirname].write.mode("overwrite").parquet(f"/opt/airflow/data/processed/{dirname}")
+        dfs[dirname].write.mode("overwrite").parquet(f"data/processed/{dirname}")
         print(f"Saved cleaned {dirname} to data/processed/{dirname}")
     
     spark.stop()

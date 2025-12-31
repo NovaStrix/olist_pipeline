@@ -2,6 +2,7 @@
 from pyspark.sql.types import *
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, when, lit
+from pyspark.sql import functions as F
 
 #Import dirnames from cleaning.py
 from cleaning import dirnames
@@ -10,11 +11,15 @@ from cleaning import dirnames
 import shutil
 import os
 
+#Import timedelta
+from datetime import timedelta
+
+dirnames.append('last_order_date')
 dfs = {}
 
 ##Make tables functions for transformation
 ###Fact Tables
-os.listdir('/opt/airflow/data/processed')
+os.listdir('data/processed')
 def fact_orders():
     df = dfs['olist_orders']
 
@@ -71,13 +76,23 @@ def fact_reviews():
 
 ###Dimension Tables
 def dim_customers():
-    df = dfs['olist_customers']
-    return df.select(
-        col("(customer_id IS NOT NULL)").alias("customer_id"),
+    df_cust = dfs['olist_customers']
+
+    df_cust = df_cust.select(
+        col('(customer_id IS NOT NULL)').alias("customer_id"),
         col("customer_unique_id"),
         col("customer_zip_code_prefix"),
         col("customer_city"),
-        col("customer_state")
+        col("customer_state"),
+    )
+
+
+    return df_cust.select(
+        F.col('customer_id'),
+        F.col('customer_unique_id'),
+        F.col('customer_zip_code_prefix'),
+        F.col('customer_city'),
+        F.col('customer_state'),
     )
 
 def dim_products():
@@ -103,6 +118,23 @@ def dim_sellers():
         col("seller_state")
     )
 
+def dim_geolocation():
+    df = dfs['olist_geolocation']
+    return df.select(
+        col("geolocation_zip_code_prefix"),
+        col("geolocation_lat"),
+        col("geolocation_lng"),
+        col("geolocation_city"),
+        col("geolocation_state")
+    )
+
+def dim_last_order_date():
+    df = dfs['last_order_date']
+    return df.select(
+        col("customer_id"),
+        col("last_order_date")
+    )
+
 table_names = []
 def transform():
     #Check for existing file
@@ -115,7 +147,7 @@ def transform():
 
     #Read cleaned data from data/processed
     for dirname in dirnames:
-        df = spark.read.parquet(f"/opt/airflow/data/processed/{dirname}")
+        df = spark.read.parquet(f"data/processed/{dirname}")
         dfs[dirname] = df
         print("____________________________________________________")
         print(f"Loaded {dirname} with {df.count()} records for transformation.")
@@ -137,19 +169,23 @@ def transform():
     dim_customers_df = dim_customers()
     dim_products_df = dim_products()
     dim_sellers_df = dim_sellers()
+    dim_geolocation_df = dim_geolocation()
+    dim_last_order_date_df = dim_last_order_date()
 
     print('=====================================================')
     print('writing transformed dataframes to data/output now...')
     print('=====================================================')
     
     #Write transformed data to data/output in parquet format
-    fact_orders_df.write.mode('overwrite').parquet("/opt/airflow/data/output/fact_orders")
-    fact_order_items_df.write.mode("overwrite").parquet("/opt/airflow/data/output/fact_order_items")
-    fact_payments_df.write.mode("overwrite").parquet("/opt/airflow/data/output/fact_payments")
-    fact_reviews_df.write.mode("overwrite").parquet("/opt/airflow/data/output/fact_reviews")
-    dim_customers_df.write.mode("overwrite").parquet("/opt/airflow/data/output/dim_customers")
-    dim_products_df.write.mode("overwrite").parquet("/opt/airflow/data/output/dim_products")
-    dim_sellers_df.write.mode("overwrite").parquet("/opt/airflow/data/output/dim_sellers")
+    fact_orders_df.write.mode('overwrite').parquet("data/output/fact_orders")
+    fact_order_items_df.write.mode("overwrite").parquet("data/output/fact_order_items")
+    fact_payments_df.write.mode("overwrite").parquet("data/output/fact_payments")
+    fact_reviews_df.write.mode("overwrite").parquet("data/output/fact_reviews")
+    dim_customers_df.write.mode("overwrite").parquet("data/output/dim_customers")
+    dim_products_df.write.mode("overwrite").parquet("data/output/dim_products")
+    dim_sellers_df.write.mode("overwrite").parquet("data/output/dim_sellers")
+    dim_geolocation_df.write.mode("overwrite").parquet("data/output/dim_geolocation")
+    dim_last_order_date_df.write.mode("overwrite").parquet("data/output/dim_last_order_date")
 
              
     spark.stop()

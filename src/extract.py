@@ -26,9 +26,9 @@ filenames = [
 def extract_data():
     #Clean data/raw if exists
 
-    if os.path.exists("/opt/airflow/data/raw"):
-        shutil.rmtree("/opt/airflow/data/raw")
-        os.makedirs("/opt/airflow/data/raw", exist_ok=True)
+    if os.path.exists("data/raw"):
+        shutil.rmtree("data/raw")
+        os.makedirs("data/raw", exist_ok=True)
 
     #Get data from Kaggle and put to data/raw
     path = kagglehub.dataset_download("olistbr/brazilian-ecommerce")
@@ -66,7 +66,7 @@ def extract_data():
     
     #Save cleaned data back to data/raw
     for filename in dirnames:
-        dfs[filename].write.mode("overwrite").csv(f"/opt/airflow/data/raw/{filename}", header=True)
+        dfs[filename].write.mode("overwrite").csv(f"data/raw/{filename}", header=True)
         print(f"Saved cleaned {filename} to data/raw/{filename}")
 
     #Return list of directory names
