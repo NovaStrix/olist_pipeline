@@ -3,7 +3,7 @@
 **A modular Data Engineering pipeline leveraging PySpark, Airflow, and PostgreSQL to transform raw e-commerce data into an analytical Star Schema.**
 
 ## System Architecture
-
+!(System Workflow Diagram)[https://github.com/NovaStrix/olist_pipeline/blob/main/Olist%20Pipeline.png?raw=true]
 This project implements a standard ETL (Extract, Transform, Load) pattern. It is designed to be orchestrated by Apache Airflow, but the core logic is decoupled into standalone Python scripts for flexibility and independent testing.
 
 ### Data Flow
