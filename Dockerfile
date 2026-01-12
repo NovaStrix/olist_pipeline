@@ -2,31 +2,55 @@ FROM apache/airflow:3.1.5
 
 USER root
 
-# 1. Install System Dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-17-jdk-headless \
     wget \
     procps \
     ca-certificates && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-ENV SPARK_VERSION=3.5.0
-
-
-# 3. Set Global Environment Variables
-RUN JAVA_PATH=$(readlink -f /usr/bin/java | sed "s:/bin/java::") && \
-    echo "export JAVA_HOME=$JAVA_PATH" >> /etc/environment
-
+# Java
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
-ENV PATH="${PATH}:${SPARK_HOME}/bin"
+ENV PATH=$JAVA_HOME/bin:$PATH
 
-# 4. Ensure Python
+# Spark
+ENV SPARK_VERSION=3.5.7
+
+RUN wget https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.tgz && \
+    tar -xzf spark-${SPARK_VERSION}-bin-hadoop3.tgz && \
+    mkdir -p /opt/spark && \
+    mv spark-${SPARK_VERSION}-bin-hadoop3 /opt/spark/spark-${SPARK_VERSION} && \
+    rm spark-${SPARK_VERSION}-bin-hadoop3.tgz
+
+ENV SPARK_HOME=/opt/spark
+ENV PATH=$SPARK_HOME/bin:$PATH
+
+# Force Spark to use Java 17
+RUN echo "export JAVA_HOME=${JAVA_HOME}" > /opt/spark/conf/spark-env.sh
+
+# PySpark runtime
 ENV PYSPARK_PYTHON=python3
 ENV PYSPARK_DRIVER_PYTHON=python3
 
 USER airflow
 
-# 5. Install Python dependencies
-RUN pip install -r requirements.txt
+# Python deps
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir pyspark==3.5.0
+
+# Runtime dirs
+RUN mkdir -p \
+    /opt/airflow/data/raw \
+    /opt/airflow/data/processed \
+    /opt/airflow/data/output \
+    /opt/airflow/src \
+    /tmp/spark-data
+
+# Final verification
+RUN java -version \
+    && spark-submit --version \
+    && python -c "import pyspark; print('PySpark', pyspark.__version__)"
+
+WORKDIR /opt/airflow

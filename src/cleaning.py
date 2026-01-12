@@ -1,7 +1,7 @@
 #Import pyspark for data wrangling
 from pyspark.sql.types import *
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
+from pyspark.sql.functions import col, to_timestamp, when, lit
 
 #Import dirnames from extract.py
 from extract import filenames
@@ -16,8 +16,8 @@ dirnames = [filename.replace("_dataset.csv", "").replace(".csv", "") for filenam
 
 #Make cleaning function
 def clean_customers():
-    return dfs['olist_customers'].select(
-        col("customer_id").isNotNull(),
+    return dfs['olist_customers'].filter(col("customer_id").isNotNull()).select(
+        col("customer_id"),
         col("customer_unique_id"),
         col("customer_zip_code_prefix"),
         col("customer_city"),
@@ -37,8 +37,8 @@ def clean_geolocation():
     )
 
 def clean_order_items():
-    return dfs['olist_order_items'].select(
-        col("order_id").isNotNull(),
+    return dfs['olist_order_items'].filter(col("order_id").isNotNull()).select(
+        col("order_id"),
         col("order_item_id"),
         col("product_id"),
         col("seller_id"),
@@ -48,40 +48,41 @@ def clean_order_items():
     )
 
 def clean_order_payments():
-    return dfs['olist_order_payments'].select(
-        col("order_id").isNotNull(),
+    return dfs['olist_order_payments'].filter(col("order_id").isNotNull()).select(
+        col("order_id"),
         col("payment_sequential").cast("int"),
         col("payment_type"),
         col("payment_installments").cast("int"),
         col("payment_value").cast("double")
     )
 
+
 def clean_order_reviews():
-    return dfs['olist_order_reviews'].select(
+    return dfs["olist_order_reviews"].filter(col("order_id").isNotNull()).select(
         col("review_id"),
-        col("order_id").isNotNull(),
-        col("review_score").try_cast("int"),
+        col("order_id"),
+        col("review_score").cast("int").alias("review_score"),
         col("review_comment_title"),
         col("review_comment_message"),
-        col("review_creation_date").try_cast("timestamp"),
-        col("review_answer_timestamp").try_cast("timestamp")
+        to_timestamp(col("review_creation_date")).alias("review_creation_date"),
+        to_timestamp(col("review_answer_timestamp")).alias("review_answer_timestamp"),
     )
 
 def clean_orders():
-    return dfs['olist_orders'].select(
-        col("order_id").isNotNull(),
+    return dfs['olist_orders'].filter(col("order_id").isNotNull()).select(
+        col("order_id"),
         col("customer_id"),
         col("order_status"),
         col("order_purchase_timestamp").cast("timestamp"),
         col("order_approved_at").cast("timestamp"),
-        col("order_delivered_carrier_date").cast("timestamp"),
-        col("order_delivered_customer_date").cast("timestamp"),
-        col("order_estimated_delivery_date").cast("timestamp")
+        to_timestamp(col("order_delivered_carrier_date")).alias("order_delivered_carrier_date"),
+        to_timestamp(col("order_delivered_customer_date")).alias("order_delivered_customer_date"),
+        to_timestamp(col("order_estimated_delivery_date")).alias("order_estimated_delivery_date")
     )
 
 def clean_products():
-    return dfs['olist_products'].select(
-        col("product_id").isNotNull(),
+    return dfs['olist_products'].filter(col("product_id").isNotNull()).select(
+        col("product_id"),
         col("product_category_name"),
         col("product_name_lenght").cast("int"),
         col("product_description_lenght").cast("int"),
@@ -93,8 +94,8 @@ def clean_products():
     )
 
 def clean_sellers():
-    return dfs['olist_sellers'].select(
-        col("seller_id").isNotNull(),
+    return dfs['olist_sellers'].filter(col("seller_id").isNotNull()).select(
+        col("seller_id"),
         col("seller_zip_code_prefix"),
         col("seller_city"),
         col("seller_state")
@@ -107,17 +108,17 @@ def last_order_date():
 dfs = {}
 
 def clean_data():
-    #Clean data/processed if exists
-    if os.path.exists("data/processed"):
-        shutil.rmtree("data/processed")
-        os.makedirs("data/processed", exist_ok=True)
+    #Clean /opt/airflow/data/processed if exists
+    if os.path.exists("/opt/airflow/data/processed"):
+        shutil.rmtree("/opt/airflow/data/processed")
+        os.makedirs("/opt/airflow/data/processed", exist_ok=True)
     
     #Create Spark session
     spark = SparkSession.builder.appName("Data_Cleaning").getOrCreate()
     
-    #Read raw data from data/raw
+    #Read raw data from /opt/airflow/data/raw
     for dirname in dirnames:
-        df = spark.read.csv(f"data/raw/{dirname}", header=True)
+        df = spark.read.csv(f"/opt/airflow/data/raw/{dirname}", header=True)
         dfs[dirname] = df
         print("____________________________________________________")
         print(f"Loaded {dirname} with {df.count()} records for cleaning.")
@@ -147,10 +148,10 @@ def clean_data():
         dfs[dirname].printSchema()
         print(f"Cleaned {dirname} has {dfs[dirname].count()} records.")
 
-    #Save cleaned data back to data/processed
+    #Save cleaned data back to /opt/airflow/data/processed
     for dirname in dirnames:
-        dfs[dirname].write.mode("overwrite").parquet(f"data/processed/{dirname}")
-        print(f"Saved cleaned {dirname} to data/processed/{dirname}")
+        dfs[dirname].write.mode("overwrite").parquet(f"/opt/airflow/data/processed/{dirname}")
+        print(f"Saved cleaned {dirname} to /opt/airflow/data/processed/{dirname}")
     
     spark.stop()
 
