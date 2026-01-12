@@ -2,9 +2,6 @@
 
 **A modular Data Engineering pipeline leveraging PySpark, Airflow, and PostgreSQL to transform raw e-commerce data into an analytical Star Schema.**
 
-> [!WARNING]
-> **Airflow Orchestration Status:** The Airflow DAG (`ecom_pipeline.py`) is currently a work-in-progress and is not yet fully functional. Due to system RAM limitations, running the full Airflow stack (Webserver, Scheduler, and Workers) alongside PySpark may lead to performance issues or crashes. It is highly recommended to run the scripts manually as described in the **Low RAM Mode** section below.
-
 ## System Architecture
 
 This project implements a standard ETL (Extract, Transform, Load) pattern. It is designed to be orchestrated by Apache Airflow, but the core logic is decoupled into standalone Python scripts for flexibility and independent testing.
@@ -50,7 +47,7 @@ The final bridge to the Data Warehouse (Supabase).
 
 The pipeline is defined in `dags/ecom_pipeline.py`.
 * **DAG ID:** `olist_spark_pipeline`
-* **Operators:** Uses `SparkSubmitOperator` to launch tasks.
+* **Operators:** Uses `BashOperator` to launch tasks.
 * **Concurrency:** Set to `max_active_runs=1` to prevent resource contention.
 * **Retry Policy:** Configured with 3 retries and a 5-minute delay.
 
@@ -68,8 +65,10 @@ A standard directory structure (`/opt/airflow/data/...`) is expected by the scri
 Requires a `.env` file in the root directory:
 
 ```env
-user=postgres
-password=your_password
-host=db.your-supabase-url.com
-port=5432
-dbname=postgres
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_key
+SUPABASE_USER=your_username
+SUPABASE_PW=your_password
+SUPABASE_HOST=your_host
+SUPABASE_PORT=your_port
+SUPABASE_DBNAME=postgres
